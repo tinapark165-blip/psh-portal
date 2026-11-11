@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#061416">
+  <title>달빛 숲 · 요정의 흔적</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #061416; }
+    body { font-family: "Malgun Gothic", sans-serif; color: #d9e9de; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .caption { position: fixed; left: 0; width: 100%; text-align: center; pointer-events: none; transition: opacity 2.5s; }
+    .title { top: 110px; opacity: .65; }
+    .title p { margin: 0 0 12px; font: 10px Georgia, serif; letter-spacing: .42em; color: #a5c5ba; }
+    h1 { margin: 0; font-size: 19px; font-weight: 300; letter-spacing: .5em; padding-left: .5em; }
+    .hint { bottom: 156px; font-size: 12px; letter-spacing: .16em; opacity: .75; line-height: 2; }
+    .hint span { display: block; font: italic 12px Georgia, serif; letter-spacing: .08em; color: #94afa5; }
+    body.awake .caption { opacity: 0; }
+    .panel { position: fixed; z-index: 2; border: 1px solid #b9e6cc26; background: #081d20dc; backdrop-filter: blur(16px); border-radius: 18px; box-shadow: 0 10px 35px #0004; }
+    .uploads { top: 18px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 14px; max-width: calc(100% - 24px); }
+    button { font: inherit; font-size: 12px; color: #e0f0e6; background: #24453b; border: 1px solid #c6eed533; border-radius: 10px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
+    button:hover { background: #355d4d; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #bdffbe; outline-offset: 4px; }
+    .secondary { background: transparent; color: #b3c6bd; }
+    .file-name { display: block; max-width: 155px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; margin: 5px 2px 0; color: #a0b7ac; }
+    .face-controls { bottom: 18px; left: 50%; transform: translateX(-50%); width: min(680px, calc(100% - 24px)); padding: 14px 18px; }
+    .face-row { display: flex; align-items: center; gap: 15px; }
+    .face-size { display: flex; align-items: center; flex: 1; gap: 12px; font-size: 12px; }
+    .face-size label, output { white-space: nowrap; }
+    .face-size input { min-width: 60px; width: 100%; accent-color: #a1f9aa; cursor: pointer; }
+    output { min-width: 38px; color: #c8eccc; font-variant-numeric: tabular-nums; }
+    .status { margin: 10px 0 0; font-size: 11px; color: #b3c9be; line-height: 1.65; }
+    #imageStatus { position: fixed; top: 91px; left: 12px; right: 12px; margin: 0; text-align: center; z-index: 2; color: #d5ecdd; text-shadow: 0 1px 5px #000; pointer-events: none; }
+    .privacy { color: #78978c; margin-left: 5px; }
+    @media (max-width: 600px) {
+      h1 { font-size: 16px; } .hint { font-size: 11px; bottom: 190px; }
+      .uploads { gap: 6px; padding: 9px; } button { padding: 9px 10px; font-size: 11px; }
+      .file-name { max-width: 100px; } .face-row { flex-wrap: wrap; gap: 12px; }
+      .face-size { flex-basis: 100%; } .privacy { display: block; margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="forest" role="img" aria-label="달빛이 비치는 밤의 숲. 마우스를 움직이거나 화면을 손가락으로 쓸면 초록빛 요정이 따라오고 흰빛이 천천히 사라집니다."></canvas>
+  <header class="caption title"><p>WHERE THE QUIET GLOWS</p><h1>달빛 숲</h1></header>
+  <div class="caption hint">마우스를 천천히 움직이면, 숲이 깨어납니다.<span>A little light is waiting for you.</span></div>
+  <section class="panel uploads" aria-label="숲과 불빛 이미지 바꾸기">
+    <div><button type="button" id="forestPicker">숲 이미지 선택</button><span id="forestName" class="file-name">기본 달빛 숲</span></div>
+    <div><button type="button" id="lightPicker">불빛 이미지 선택</button><span id="lightName" class="file-name">기본 초록빛 · 흰 잔광</span></div>
+    <button type="button" id="resetImages" class="secondary">기본으로</button>
+    <input type="file" id="forestFile" accept="image/*" hidden>
+    <input type="file" id="lightFile" accept="image/*" hidden>
+  </section>
+  <p id="imageStatus" class="status" role="status"></p>
+  <section class="panel face-controls" aria-label="요정 얼굴 설정">
+    <div class="face-row">
+      <button type="button" id="cameraButton" aria-pressed="false">웹캠 얼굴 켜기</button>
+      <div class="face-size">
+        <label for="faceSize">얼굴 크기</label>
+        <input type="range" id="faceSize" min="100" max="350" value="180" step="10" aria-describedby="cameraStatus">
+        <output id="faceSizeValue" for="faceSize">180%</output>
+      </div>
+    </div>
+    <p class="status"><span id="cameraStatus" role="status">웹캠을 켜면 얼굴을 찾아 요정에게 보여줍니다.</span><span class="privacy">영상과 파일은 PC 안에서만 사용합니다.</span></p>
+  </section>
+  <video id="webcam" autoplay muted playsinline hidden></video>
+  <script>
+    'use strict';
+    const canvas = document.getElementById('forest');
+    const ctx = canvas.getContext('2d');
+    const backdrop = document.createElement('canvas');
+    const bg = backdrop.getContext('2d');
+    let width, height, ratio, lastFrame = 0, lastMove = -100, clock = 0;
+    let entered = false, opacity = 0, wingTime = 0;
+    const target = { x: 0, y: 0 };
+    const fairy = { x: 0, y: 0, angle: 0 };
+    const trail = [], sparks = [];
+    const video = document.getElementById('webcam');
+    const cameraButton = document.getElementById('cameraButton');
+    const cameraStatus = document.getElementById('cameraStatus');
+    const imageStatus = document.getElementById('imageStatus');
+    let faceScale = 1.8, faceBox = null, faceSeen = 0, detectionTime = 0, videoTime = -1;
+    let cameraState = 'off', cameraRequest = 0, cameraStream = null, detector = null, detectorPromise = null;
+    let forestImage = null, lightImages = null;
+    const selectionVersion = { forest: 0, light: 0 };
+
+    function cover(c, image, w, h) {
+      const scale = Math.max(w / image.width, h / image.height);
+      c.drawImage(image, (w - image.width * scale) / 2, (h - image.height * scale) / 2, image.width * scale, image.height * scale);
+    }
+    function lightGlow(c, x, y, radius, color, white = false) {
+      if (!lightImages) { glow(c, x, y, radius, color); return; }
+      const sprite = white ? lightImages.white : lightImages.green;
+      c.save(); c.globalAlpha *= Number(color.match(/,([\d.]+)\)$/)[1]);
+      c.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2); c.restore();
+    }
+    function makeLightImages(image) {
+      const sprite = document.createElement('canvas'); sprite.width = sprite.height = 256;
+      const c = sprite.getContext('2d', { willReadFrequently: true });
+      const scale = Math.min(256 / image.width, 256 / image.height);
+      c.drawImage(image, (256 - image.width * scale) / 2, (256 - image.height * scale) / 2, image.width * scale, image.height * scale);
+      const pixels = c.getImageData(0, 0, 256, 256);
+      const alpha = new Uint8ClampedArray(256 * 256);
+      for (let i = 0; i < alpha.length; i++) {
+        const j = i * 4;
+        alpha[i] = pixels.data[j + 3] * Math.max(pixels.data[j], pixels.data[j + 1], pixels.data[j + 2]) / 255;
+      }
+      const result = {};
+      for (const [key, tint] of [['green', [135, 255, 147]], ['white', [236, 248, 255]]]) {
+        const output = document.createElement('canvas'); output.width = output.height = 256;
+        const outputContext = output.getContext('2d');
+        const data = outputContext.createImageData(256, 256);
+        for (let i = 0; i < alpha.length; i++) {
+          data.data.set(tint, i * 4); data.data[i * 4 + 3] = alpha[i];
+        }
+        outputContext.putImageData(data, 0, 0); result[key] = output;
+      }
+      return result;
+    }
+    async function chooseImage(kind, input) {
+      const file = input.files[0]; if (!file) return;
+      const version = ++selectionVersion[kind];
+      if (!file.type.startsWith('image/') || file.size > 20 * 1024 * 1024) {
+        imageStatus.textContent = '20MB 이하의 이미지 파일을 골라 주세요. 기존 이미지는 유지됩니다.'; input.value = ''; return;
+      }
+      const url = URL.createObjectURL(file);
+      try {
+        const image = new Image(); image.src = url; await image.decode();
+        if (version !== selectionVersion[kind]) return;
+        if (kind === 'forest') {
+          const copy = document.createElement('canvas');
+          const scale = Math.min(1, 2560 / Math.max(image.width, image.height));
+          copy.width = Math.max(1, Math.round(image.width * scale)); copy.height = Math.max(1, Math.round(image.height * scale));
+          copy.getContext('2d').drawImage(image, 0, 0, copy.width, copy.height); forestImage = copy;
+        } else { lightImages = makeLightImages(image); }
+        document.getElementById(kind + 'Name').textContent = file.name;
+        document.getElementById(kind + 'Name').title = file.name;
+        imageStatus.textContent = kind === 'forest' ? '선택한 숲 이미지로 바꿨어요.' : '선택한 모양이 초록빛과 흰 잔광에 적용됐어요.';
+      } catch (error) {
+        if (version === selectionVersion[kind]) imageStatus.textContent = '이미지를 열지 못했어요. PNG, JPG 또는 WebP 파일로 다시 골라 주세요.';
+        console.error('Image selection:', error);
+      } finally { URL.revokeObjectURL(url); input.value = ''; }
+    }
+    for (const kind of ['forest', 'light']) {
+      const input = document.getElementById(kind + 'File');
+      document.getElementById(kind + 'Picker').addEventListener('click', () => input.click());
+      input.addEventListener('change', () => chooseImage(kind, input));
+    }
+    document.getElementById('resetImages').addEventListener('click', () => {
+      selectionVersion.forest++; selectionVersion.light++; forestImage = lightImages = null;
+      for (const kind of ['forest', 'light']) document.getElementById(kind + 'Name').removeAttribute('title');
+      document.getElementById('forestName').textContent = '기본 달빛 숲';
+      document.getElementById('lightName').textContent = '기본 초록빛 · 흰 잔광';
+      imageStatus.textContent = '기본 숲과 불빛으로 돌아왔어요.';
+    });
+    document.getElementById('faceSize').addEventListener('input', event => {
+      faceScale = Number(event.target.value) / 100;
+      document.getElementById('faceSizeValue').textContent = event.target.value + '%';
+    });
+
+    async function loadDetector() {
+      if (!detectorPromise) detectorPromise = (async () => {
+        const { FaceDetector, FilesetResolver } = await import('./vendor/mediapipe/vision_bundle.mjs');
+        const files = await FilesetResolver.forVisionTasks('./vendor/mediapipe/wasm');
+        return FaceDetector.createFromOptions(files, {
+          baseOptions: { modelAssetPath: './vendor/mediapipe/blaze_face_short_range.tflite', delegate: 'CPU' },
+          runningMode: 'VIDEO', minDetectionConfidence: .6
+        });
+      })().catch(error => { detectorPromise = null; throw error; });
+      return detectorPromise;
+    }
+    function stopCamera(message = '웹캠을 껐어요. 기본 요정 얼굴로 돌아갑니다.') {
+      cameraRequest++; cameraState = 'off'; faceBox = null; videoTime = -1;
+      delete cameraStatus.dataset.state;
+      const stream = cameraStream; cameraStream = null;
+      stream?.getTracks().forEach(track => track.stop());
+      video.pause(); video.srcObject = null;
+      cameraButton.textContent = '웹캠 얼굴 켜기'; cameraButton.setAttribute('aria-pressed', 'false');
+      cameraStatus.textContent = message;
+    }
+    async function startCamera() {
+      if (location.protocol === 'file:') {
+        cameraStatus.textContent = '이 창을 닫고 폴더의 START.cmd를 두 번 눌러 열어 주세요. 얼굴 인식은 그 창에서 사용할 수 있어요.'; return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        cameraStatus.textContent = 'Chrome에서 START.cmd로 다시 열어 주세요. 이 창에서는 카메라를 사용할 수 없어요.'; return;
+      }
+      const request = ++cameraRequest; cameraState = 'starting';
+      cameraButton.textContent = '웹캠 연결 취소'; cameraButton.setAttribute('aria-pressed', 'true');
+      cameraStatus.textContent = 'Chrome에서 카메라 사용을 허용해 주세요.';
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+        if (request !== cameraRequest) { stream.getTracks().forEach(track => track.stop()); return; }
+        cameraStream = stream; video.srcObject = stream; await video.play();
+        if (request !== cameraRequest) return;
+        cameraStatus.textContent = '얼굴을 찾을 준비 중이에요…';
+        const loaded = await loadDetector();
+        if (request !== cameraRequest) return;
+        detector = loaded; cameraState = 'on'; detectionTime = 0; videoTime = -1;
+        cameraButton.textContent = '웹캠 끄기'; cameraStatus.textContent = '카메라를 정면으로 바라봐 주세요.';
+        for (const track of stream.getVideoTracks()) track.addEventListener('ended', () => {
+          if (cameraStream === stream) stopCamera('카메라 연결이 끝났어요. 다시 켜서 연결해 주세요.');
+        });
+      } catch (error) {
+        if (request !== cameraRequest) return;
+        const messages = {
+          NotAllowedError: '카메라 사용이 허용되지 않았어요. Chrome에서 카메라를 허용한 뒤 다시 켜 주세요.',
+          NotFoundError: '웹캠을 찾지 못했어요. PC에 웹캠이 연결되어 있는지 확인해 주세요.',
+          NotReadableError: '웹캠을 열지 못했어요. 다른 앱에서 카메라를 사용 중인지 확인해 주세요.'
+        };
+        stopCamera(messages[error.name] || '얼굴 인식을 준비하지 못했어요. START.cmd로 다시 열고 웹캠을 켜 주세요.');
+        console.error('Camera initialization:', error);
+      }
+    }
+    cameraButton.addEventListener('click', () => cameraState === 'off' ? startCamera() : stopCamera());
+    function updateFace(now) {
+      if (cameraState !== 'on' || video.readyState < 2 || video.currentTime === videoTime || now - detectionTime < 100) return;
+      detectionTime = now; videoTime = video.currentTime;
+      try {
+        const faces = detector.detectForVideo(video, now).detections;
+        const biggest = faces.reduce((best, face) => !best || face.boundingBox.width * face.boundingBox.height > best.boundingBox.width * best.boundingBox.height ? face : best, null);
+        if (biggest) {
+          const box = biggest.boundingBox;
+          const size = Math.min(Math.max(box.width, box.height) * 1.25, video.videoWidth, video.videoHeight);
+          const next = { x: Math.max(0, Math.min(video.videoWidth - size, box.originX + box.width / 2 - size / 2)),
+            y: Math.max(0, Math.min(video.videoHeight - size, box.originY + box.height / 2 - size * .54)), size };
+          if (faceBox) for (const key of ['x', 'y', 'size']) faceBox[key] += (next[key] - faceBox[key]) * .45;
+          else faceBox = next;
+          faceSeen = now;
+          if (cameraStatus.dataset.state !== 'found') {
+            cameraStatus.textContent = '얼굴을 찾았어요! 마우스를 움직이면 내 얼굴의 요정이 나타납니다.'; cameraStatus.dataset.state = 'found';
+          }
+        } else if (now - faceSeen > 350) {
+          faceBox = null;
+          if (cameraStatus.dataset.state !== 'waiting') {
+            cameraStatus.textContent = '얼굴을 찾고 있어요. 카메라를 정면으로 바라봐 주세요.'; cameraStatus.dataset.state = 'waiting';
+          }
+        }
+      } catch (error) {
+        stopCamera('얼굴 인식이 멈췄어요. 웹캠 얼굴 켜기를 눌러 다시 연결해 주세요.'); console.error('Face detection:', error);
+      }
+    }
+    window.addEventListener('pagehide', () => {
+      stopCamera(); detectorPromise?.then(loaded => loaded.close()).catch(() => {});
+      detectorPromise = null; detector = null;
+    });
+    function drawCameraFace() {
+      if (!faceBox || cameraState !== 'on' || video.readyState < 2 || performance.now() - faceSeen > 450) return;
+      const r = 12 * faceScale, y = -8 - r * 1.1;
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.ellipse(0, y, r, r * 1.1, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.translate(0, y); ctx.scale(-1, 1);
+      ctx.drawImage(video, faceBox.x, faceBox.y, faceBox.size, faceBox.size, -r, -r * 1.1, r * 2, r * 2.2);
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle = 'rgba(188,255,188,.65)'; ctx.lineWidth = 1;
+      ctx.shadowColor = '#a4ffb2'; ctx.shadowBlur = 7;
+      ctx.beginPath(); ctx.ellipse(0, y, r, r * 1.1, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    let seed;
+    function random() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+    function ellipse(c, x, y, rx, ry, color, angle = 0) {
+      c.fillStyle = color; c.beginPath(); c.ellipse(x, y, rx, ry, angle, 0, Math.PI * 2); c.fill();
+    }
+    function glow(c, x, y, radius, color) {
+      const g = c.createRadialGradient(x, y, 0, x, y, radius);
+      g.addColorStop(0, color); g.addColorStop(1, 'rgba(120,220,170,0)');
+      c.fillStyle = g; c.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
+    function tree(x, ground, tall, thick, color, lean) {
+      bg.save(); bg.translate(x, ground); bg.rotate(lean);
+      bg.fillStyle = color;
+      bg.beginPath(); bg.moveTo(-thick * .9, 12);
+      bg.bezierCurveTo(-thick * .45, -tall * .3, -thick * .3, -tall * .7, 0, -tall);
+      bg.bezierCurveTo(thick * .45, -tall * .7, thick * .35, -tall * .3, thick, 12); bg.fill();
+      bg.strokeStyle = color; bg.lineCap = 'round';
+      for (let b = 0; b < 9; b++) {
+        const y = -tall * (.3 + b * .072), side = b % 2 ? 1 : -1;
+        const length = tall * (.11 + random() * .13);
+        bg.lineWidth = thick * (1 - b / 12) * .42;
+        bg.beginPath(); bg.moveTo(0, y);
+        bg.quadraticCurveTo(side * length * .45, y - 18, side * length, y - length * .55); bg.stroke();
+        bg.lineWidth *= .38; bg.beginPath(); bg.moveTo(side * length * .65, y - length * .25);
+        bg.lineTo(side * length * .72, y - length * .67); bg.stroke();
+        for (let l = 0; l < 8; l++) {
+          ellipse(bg, side * length * (.5 + random() * .8), y - length * (.25 + random() * .55),
+            12 + random() * 28, 6 + random() * 12, color, random() * 2);
+        }
+      }
+      // A narrow, moonlit edge keeps the dark trunks legible.
+      bg.strokeStyle = 'rgba(115,172,160,.09)'; bg.lineWidth = Math.max(1, thick * .045);
+      bg.beginPath(); bg.moveTo(thick * .44, -5); bg.quadraticCurveTo(-thick * .05, -tall * .48, 0, -tall * .95); bg.stroke();
+      bg.restore();
+    }
+    function fern(x, y, size, direction) {
+      bg.save(); bg.translate(x, y); bg.rotate(direction);
+      bg.strokeStyle = '#193e38'; bg.lineWidth = 1.2;
+      bg.beginPath(); bg.moveTo(0, 0); bg.quadraticCurveTo(-size * .25, -size * .55, size * .1, -size); bg.stroke();
+      for (let i = 1; i < 13; i++) {
+        const t = i / 13, py = -size * t, px = -Math.sin(t * Math.PI) * size * .09;
+        for (const side of [-1, 1]) {
+          const reach = Math.sin(t * Math.PI) * size * .27;
+          bg.fillStyle = i % 2 ? '#12352f' : '#163d34';
+          bg.beginPath(); bg.moveTo(px, py + 4);
+          bg.quadraticCurveTo(px + side * reach * .7, py + size * .01, px + side * reach, py - size * .11);
+          bg.quadraticCurveTo(px + side * reach * .3, py - size * .08, px, py); bg.fill();
+        }
+      }
+      bg.restore();
+    }
+    function paintForest() {
+      seed = 84027;
+      bg.setTransform(backdrop.width / 1600, 0, 0, backdrop.height / 1000, 0, 0);
+      const sky = bg.createLinearGradient(0, 0, 0, 1000);
+      sky.addColorStop(0, '#08151f'); sky.addColorStop(.44, '#163535'); sky.addColorStop(1, '#030e10');
+      bg.fillStyle = sky; bg.fillRect(0, 0, 1600, 1000);
+      glow(bg, 870, 520, 620, 'rgba(87,146,129,.22)');
+      glow(bg, 650, 200, 240, 'rgba(169,209,200,.12)');
+      for (let i = 0; i < 65; i++) {
+        ellipse(bg, random() * 1600, random() * 460, .4 + random(), .4 + random(), 'rgba(211,231,224,.3)');
+      }
+      glow(bg, 650, 210, 85, 'rgba(216,232,213,.18)');
+      ellipse(bg, 650, 210, 23, 23, '#becfc1');
+      ellipse(bg, 657, 204, 21, 23, '#324c4b');
+      for (let layer = 0; layer < 4; layer++) {
+        const count = 22 - layer * 3;
+        for (let i = 0; i < count; i++) {
+          const x = (i + random() * .75) / count * 1750 - 70;
+          const center = Math.abs(x - 850) / 850;
+          const tall = 320 + random() * 260 + layer * 70 + center * 180;
+          tree(x, 670 + layer * 62 + random() * 70, tall, 5 + layer * 5 + random() * 7,
+            ['#234443', '#183a39', '#102d2d', '#092323'][layer], (random() - .5) * .15);
+        }
+        glow(bg, 830, 660 + layer * 30, 430, 'rgba(100,155,139,.07)');
+      }
+      // Soft shafts of moonlight, behind the foreground trees.
+      for (let i = 0; i < 5; i++) {
+        const x = 610 + i * 31;
+        const ray = bg.createLinearGradient(x, 180, x + 360, 880);
+        ray.addColorStop(0, 'rgba(196,226,211,.005)'); ray.addColorStop(.4, 'rgba(196,226,211,.035)'); ray.addColorStop(1, 'rgba(196,226,211,0)');
+        bg.fillStyle = ray; bg.beginPath(); bg.moveTo(x, 160); bg.lineTo(x + 18, 160);
+        bg.lineTo(x + 560, 940); bg.lineTo(x + 350, 940); bg.fill();
+      }
+      const floor = bg.createLinearGradient(0, 740, 0, 1000);
+      floor.addColorStop(0, 'rgba(6,24,23,0)'); floor.addColorStop(.4, '#071e1b'); floor.addColorStop(1, '#020c0e');
+      bg.fillStyle = floor; bg.fillRect(0, 740, 1600, 260);
+      // A pale, winding clearing draws the eye into the forest.
+      bg.fillStyle = 'rgba(114,151,130,.07)'; bg.beginPath(); bg.moveTo(810, 710);
+      bg.bezierCurveTo(1030, 790, 630, 800, 830, 1000); bg.lineTo(1090, 1000);
+      bg.bezierCurveTo(720, 815, 1110, 780, 810, 710); bg.fill();
+      for (let i = 0; i < 700; i++) {
+        const y = 770 + random() * 230, x = random() * 1600;
+        ellipse(bg, x, y, 1 + random() * 6, .4 + random() * 1.3, `rgba(76,119,91,${random() * .13})`);
+      }
+      tree(94, 1090, 1250, 79, '#041415', .1);
+      tree(1515, 1100, 1370, 94, '#031214', -.12);
+      tree(270, 1000, 1100, 37, '#061b1c', -.11);
+      tree(1330, 1050, 1220, 48, '#051919', .1);
+      for (let i = 0; i < 65; i++) {
+        const x = random() * 1600;
+        if (x > 610 && x < 1070 && random() < .8) continue;
+        fern(x, 960 + random() * 120, 50 + random() * 135, (random() - .5) * 1.7);
+      }
+      const vignette = bg.createRadialGradient(810, 480, 220, 800, 500, 960);
+      vignette.addColorStop(0, 'rgba(0,5,12,0)'); vignette.addColorStop(1, 'rgba(0,5,12,.74)');
+      bg.fillStyle = vignette; bg.fillRect(0, 0, 1600, 1000);
+    }
+    function resize() {
+      width = innerWidth; height = innerHeight; ratio = Math.min(devicePixelRatio || 1, 1.75);
+      canvas.width = backdrop.width = Math.round(width * ratio);
+      canvas.height = backdrop.height = Math.round(height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0); paintForest();
+      target.x = Math.min(width, target.x); target.y = Math.min(height, target.y);
+    }
+    function awaken(event) {
+      if (event.pointerType === 'mouse' && entered && Math.hypot(event.clientX - target.x, event.clientY - target.y) < .5) return;
+      target.x = event.clientX; target.y = event.clientY;
+      if (!entered || clock - lastMove > 9) {
+        fairy.x = target.x < width / 2 ? -45 : width + 45;
+        fairy.y = Math.max(45, Math.min(height - 45, target.y + 100));
+        entered = true;
+      }
+      lastMove = clock; document.body.classList.add('awake');
+    }
+    function drawFairy(time, alpha) {
+      const scale = Math.max(.72, Math.min(1.15, width / 1400));
+      ctx.save(); ctx.translate(fairy.x, fairy.y + Math.sin(time * 3.8) * 3);
+      ctx.scale(scale, scale); ctx.rotate(fairy.angle);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alpha;
+      const pulse = .68 + .21 * Math.sin(time * 5) + .11 * Math.sin(time * 11);
+      lightGlow(ctx, 0, 0, 95, `rgba(100,255,118,${.14 * pulse})`);
+      lightGlow(ctx, 0, 0, 35, `rgba(131,255,143,${.36 * pulse})`);
+      const flap = .55 + .45 * Math.sin(wingTime);
+      for (const side of [-1, 1]) {
+        ctx.save(); ctx.scale(side * (.45 + flap * .55), 1);
+        const wing = ctx.createLinearGradient(0, 0, 38, -30);
+        wing.addColorStop(0, 'rgba(213,255,218,.55)'); wing.addColorStop(.6, 'rgba(185,255,222,.23)'); wing.addColorStop(1, 'rgba(234,255,246,.05)');
+        ctx.fillStyle = wing; ctx.strokeStyle = 'rgba(220,255,236,.5)'; ctx.lineWidth = .6;
+        ctx.beginPath(); ctx.moveTo(0, -4); ctx.bezierCurveTo(14, -41, 49, -42, 34, -13);
+        ctx.bezierCurveTo(25, 3, 8, 7, 0, 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(1, 1); ctx.bezierCurveTo(38, 2, 36, 26, 20, 22);
+        ctx.quadraticCurveTo(6, 20, 1, 5); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = 'rgba(215,255,233,.22)';
+        ctx.beginPath(); ctx.moveTo(2, 0); ctx.quadraticCurveTo(17, -8, 33, -29);
+        ctx.moveTo(4, 3); ctx.lineTo(26, 15); ctx.stroke(); ctx.restore();
+      }
+      ctx.shadowColor = '#a4ffb2'; ctx.shadowBlur = 12;
+      ellipse(ctx, 0, -13, 4, 4.7, 'rgba(243,255,224,.95)');
+      ctx.fillStyle = 'rgba(213,255,204,.83)'; ctx.beginPath(); ctx.moveTo(-2, -7);
+      ctx.quadraticCurveTo(-3, 2, -10, 14); ctx.quadraticCurveTo(0, 19, 10, 13);
+      ctx.quadraticCurveTo(3, 1, 2, -7); ctx.fill();
+      ctx.strokeStyle = 'rgba(233,255,218,.8)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-2, -4); ctx.lineTo(-10, 4); ctx.lineTo(-15, 1);
+      ctx.moveTo(2, -4); ctx.lineTo(10, 1); ctx.lineTo(15, -5);
+      ctx.moveTo(-2, 15); ctx.lineTo(-4, 25); ctx.moveTo(3, 15); ctx.lineTo(7, 23); ctx.stroke();
+      drawCameraFace();
+      ctx.restore();
+    }
+    function animate(now) {
+      const dt = Math.min((now - (lastFrame || now)) / 1000, .04);
+      lastFrame = now; clock += dt; wingTime += dt * 24;
+      ctx.clearRect(0, 0, width, height);
+      if (forestImage) cover(ctx, forestImage, width, height);
+      else ctx.drawImage(backdrop, 0, 0, width, height);
+      updateFace(now);
+      // Barely visible wandering lights keep the resting forest quiet.
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 13; i++) {
+        const x = width * (.12 + ((i * .173) % .78)) + Math.sin(clock * .17 + i * 5) * 18;
+        const y = height * (.58 + (i % 5) * .06) + Math.cos(clock * .23 + i) * 12;
+        const a = Math.pow(Math.max(0, Math.sin(clock * .65 + i * 2.1)), 4) * .25;
+        lightGlow(ctx, x, y, 12, `rgba(142,227,140,${a * .3})`);
+        ellipse(ctx, x, y, .8, .8, `rgba(186,246,168,${a})`);
+      }
+      const awake = entered && clock - lastMove < 6;
+      opacity += ((awake ? 1 : 0) - opacity) * (1 - Math.exp(-dt * 2));
+      if (!awake && opacity < .04) document.body.classList.remove('awake');
+      if (entered && opacity > .005) {
+        const oldX = fairy.x, oldY = fairy.y, blend = 1 - Math.exp(-dt * 4.4);
+        fairy.x += (target.x - fairy.x) * blend; fairy.y += (target.y - 9 - fairy.y) * blend;
+        const distance = Math.hypot(fairy.x - oldX, fairy.y - oldY);
+        fairy.angle += (Math.max(-.4, Math.min(.4, (fairy.x - oldX) * .025)) - fairy.angle) * blend;
+        if (distance > .45 && awake) {
+          const count = Math.min(12, Math.ceil(distance / 5));
+          for (let i = 0; i < count; i++) {
+            const t = i / count;
+            trail.push({ x: oldX + (fairy.x - oldX) * t, y: oldY + (fairy.y - oldY) * t,
+              age: 0, life: 2.5 + Math.random() * 1.5, size: 5 + Math.random() * 9, drift: (Math.random() - .5) * 7 });
+          }
+        }
+        if (awake && Math.random() < dt * 40) {
+          sparks.push({ x: fairy.x + (Math.random() - .5) * 48, y: fairy.y + (Math.random() - .5) * 42,
+            age: 0, life: .45 + Math.random() * .85, phase: Math.random() * 6.28 });
+        }
+      }
+      if (trail.length > 650) trail.splice(0, trail.length - 650);
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const p = trail[i]; p.age += dt;
+        if (p.age >= p.life) { trail.splice(i, 1); continue; }
+        p.x += p.drift * dt; p.y -= dt * 4;
+        const fade = Math.pow(1 - p.age / p.life, 1.8);
+        lightGlow(ctx, p.x, p.y, p.size * (1 + p.age * .55), `rgba(229,244,255,${fade * .12})`, true);
+        ellipse(ctx, p.x, p.y, .75, .75, `rgba(248,255,255,${fade * .38})`);
+      }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const p = sparks[i]; p.age += dt; p.y -= dt * 11;
+        if (p.age >= p.life) { sparks.splice(i, 1); continue; }
+        const a = Math.sin(p.age / p.life * Math.PI) * (.55 + .45 * Math.sin(p.age * 24 + p.phase));
+        lightGlow(ctx, p.x, p.y, 13, `rgba(114,255,127,${a * .35})`);
+        ellipse(ctx, p.x, p.y, 1.2, 1.2, `rgba(191,255,160,${a * .8})`);
+      }
+      if (opacity > .005) drawFairy(clock, opacity);
+      ctx.globalCompositeOperation = 'source-over';
+      requestAnimationFrame(animate);
+    }
+    window.addEventListener('resize', resize);
+    canvas.addEventListener('pointermove', awaken);
+    canvas.addEventListener('pointerdown', awaken);
+    document.addEventListener('visibilitychange', () => { lastFrame = 0; });
+    resize(); requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
