@@ -5,6 +5,11 @@ import assert from 'node:assert/strict';
 
 const source = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 let html = source;
+const forestPath = './autumn-forest.webp';
+const forestImage = await readFile(new URL(forestPath, import.meta.url));
+assert.ok(html.includes(`defaultForest.src = '${forestPath}'`));
+html = html.replace(`defaultForest.src = '${forestPath}'`,
+  `defaultForest.src = 'data:image/webp;base64,${forestImage.toString('base64')}'`);
 const artifacts = [
   ['vision-module', 'vision_bundle.mjs'],
   ['vision-loader-simd', 'wasm/vision_wasm_internal.js'],

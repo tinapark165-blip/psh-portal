@@ -31,6 +31,9 @@ for (const match of html.matchAll(/<script type="application\/octet-stream" id="
 assert.equal(count, 6);
 const app = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 assert.equal(app.length, 1); new vm.Script(app[0][1]);
+const forestImage = app[0][1].match(/defaultForest\.src = 'data:image\/webp;base64,([^']+)'/);
+assert.ok(forestImage, 'The default forest image must be embedded.');
+assert.deepEqual(Buffer.from(forestImage[1], 'base64'), await readFile(new URL('./autumn-forest.webp', import.meta.url)));
 assert.doesNotMatch(app[0][1], /vendor\/mediapipe|START\.cmd|modelAssetPath|location\.protocol === 'file:'/);
 assert.doesNotMatch(html, /<(?:script|link|img|iframe)\b[^>]*(?:src|href)=["'][^"']+["']/i);
 assert.match(html, /connect-src blob:/);

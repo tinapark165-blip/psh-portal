@@ -87,8 +87,15 @@ test('both image choices apply; reset restores defaults; invalid images preserve
   s.elements.get('forestFile').files = [{ type: 'text/plain', size: 10 }];
   s.sandbox.input = s.elements.get('forestFile'); await s.run("chooseImage('forest', input)");
   assert.equal(s.run('forestImage'), before);
+  s.run('defaultForest.complete = true; defaultForest.naturalWidth = 1600;');
+  s.draws.length = 0;
+  s.run('animate(1000)');
+  assert.equal(s.draws[0][0], before);
   s.elements.get('resetImages').handlers.click();
   assert.equal(s.run('forestImage'), null); assert.equal(s.run('lightImages'), null);
+  s.draws.length = 0;
+  s.run('animate(1016)');
+  assert.equal(s.draws[0][0], s.run('defaultForest'));
 });
 
 test('face size slider changes the displayed size and its label', () => {
@@ -98,12 +105,13 @@ test('face size slider changes the displayed size and its label', () => {
   assert.equal(s.elements.get('faceSizeValue').textContent, '350%');
 });
 
-test('local server serves the page, module, wasm and model, restricts external connections and hides project files', async () => {
+test('local server serves the page and its assets, restricts external connections and hides project files', async () => {
   const server = createForestServer();
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
-    for (const [path, contentType] of [['/', 'text/html'], ['/vendor/mediapipe/vision_bundle.mjs', 'text/javascript'],
+    for (const [path, contentType] of [['/', 'text/html'], ['/autumn-forest.webp', 'image/webp'],
+      ['/vendor/mediapipe/vision_bundle.mjs', 'text/javascript'],
       ['/vendor/mediapipe/wasm/vision_wasm_internal.js', 'text/javascript'],
       ['/vendor/mediapipe/wasm/vision_wasm_internal.wasm', 'application/wasm'],
       ['/vendor/mediapipe/wasm/vision_wasm_nosimd_internal.js', 'text/javascript'],

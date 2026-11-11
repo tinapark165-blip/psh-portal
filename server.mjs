@@ -9,6 +9,7 @@ const root = new URL('./', import.meta.url);
 const files = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
+  ['/autumn-forest.webp', ['autumn-forest.webp', 'image/webp']],
   ...['vision_bundle.mjs', 'wasm/vision_wasm_internal.js', 'wasm/vision_wasm_nosimd_internal.js',
     'wasm/vision_wasm_internal.wasm', 'wasm/vision_wasm_nosimd_internal.wasm', 'blaze_face_short_range.tflite']
     .map(name => ['/vendor/mediapipe/' + name, ['vendor/mediapipe/' + name,

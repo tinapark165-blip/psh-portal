@@ -71,6 +71,8 @@
     const ctx = canvas.getContext('2d');
     const backdrop = document.createElement('canvas');
     const bg = backdrop.getContext('2d');
+    const defaultForest = new Image();
+    defaultForest.src = './autumn-forest.webp';
     let width, height, ratio, lastFrame = 0, lastMove = -100, clock = 0;
     let entered = false, opacity = 0, wingTime = 0;
     const target = { x: 0, y: 0 };
@@ -92,7 +94,8 @@
     function lightGlow(c, x, y, radius, color, white = false) {
       if (!lightImages) { glow(c, x, y, radius, color); return; }
       const sprite = white ? lightImages.white : lightImages.green;
-      c.save(); c.globalAlpha *= Number(color.match(/,([\d.]+)\)$/)[1]);
+      const alpha = Number(color.slice(color.lastIndexOf(',') + 1, -1));
+      c.save(); c.globalAlpha *= alpha;
       c.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2); c.restore();
     }
     function makeLightImages(image) {
@@ -426,6 +429,7 @@
       lastFrame = now; clock += dt; wingTime += dt * 24;
       ctx.clearRect(0, 0, width, height);
       if (forestImage) cover(ctx, forestImage, width, height);
+      else if (defaultForest.complete && defaultForest.naturalWidth) cover(ctx, defaultForest, width, height);
       else ctx.drawImage(backdrop, 0, 0, width, height);
       updateFace(now);
       // Barely visible wandering lights keep the resting forest quiet.
